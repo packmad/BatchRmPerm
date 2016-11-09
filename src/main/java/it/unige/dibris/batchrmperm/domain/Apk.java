@@ -38,6 +38,10 @@ public class Apk {
     @NotNull
     private boolean installSuccess;
 
+    @NotNull
+    private boolean monkeyCrash;
+
+
     private String failureReason;
 
     Apk() {}
@@ -111,6 +115,14 @@ public class Apk {
         this.path = path;
     }
 
+    public boolean isMonkeyCrash() {
+        return monkeyCrash;
+    }
+
+    public void setMonkeyCrash(boolean monkeyCrash) {
+        this.monkeyCrash = monkeyCrash;
+    }
+
     @Override
     public String toString() {
         return "Apk{" +
@@ -118,6 +130,7 @@ public class Apk {
                 ", md5Hash='" + md5Hash + '\'' +
                 ", path=" + path +
                 ", installSuccess=" + installSuccess +
+                ", monkeyCrash=" + monkeyCrash +
                 ", failureReason='" + failureReason + '\'' +
                 '}';
     }

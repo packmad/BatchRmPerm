@@ -4,6 +4,7 @@ package it.unige.dibris.batchrmperm.service;
 import it.unige.dibris.batchrmperm.BatchRmPermApplication;
 import it.unige.dibris.batchrmperm.domain.Apk;
 import it.unige.dibris.batchrmperm.exception.InstallationException;
+import it.unige.dibris.batchrmperm.exception.OutputEmptyException;
 import it.unige.dibris.batchrmperm.repository.ApkRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,7 +26,7 @@ import java.util.regex.Pattern;
 public class BatchWork {
     private static final String adb = "/home/simo/android-sdk-linux/platform-tools/adb";
     private static final String emulator = "/home/simo/android-sdk-linux/tools/emulator";
-    private static final String APKS_FOLDER = "/home/simo/Downloads/testapk";
+    private static final String APKS_FOLDER = "/media/simo/HDEsterno/ApkSamples/";
     private static final File FAILS_FOLDER = new File(APKS_FOLDER, "Fails");
 
     @Autowired
@@ -51,14 +53,71 @@ public class BatchWork {
                 System.out.println(apkPath.toString());
                 Apk apk = new Apk(apkPath);
                 installBatch(apk);
+                apk.setMonkeyCrash(testMonkey(apk.getPackName()));
+                apkRepository.save(apk);
+                returnToHomeScreen();
+                adbUninstallApk(apk.getPackName());
             }
             catch (Exception e) {
                 e.printStackTrace();
-                java.nio.file.Files.move(apkPath, Paths.get(FAILS_FOLDER.toString(), apkPath.getFileName().toString()));
             }
         }
 
         System.out.println("<-- End.");
+    }
+
+
+    private void returnToHomeScreen() throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add(adb);
+        args.add("shell");
+        args.add("am");
+        args.add("start");
+        args.add("-a");
+        args.add("android.intent.action.MAIN");
+        args.add("-c");
+        args.add("android.intent.category.HOME");
+        execute(args);
+    }
+
+
+    /**
+     *
+     * @param packageName
+     * @return true if the app crashed, false otherwise
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private boolean testMonkey(String packageName) throws IOException, InterruptedException, OutputEmptyException {
+        List<String> args = new ArrayList<>();
+        args.add(adb);
+        args.add("shell");
+        args.add("monkey");
+        args.add("-p");
+        args.add(packageName);
+        args.add("-vv");
+        args.add("256");
+        List<String> output = execute(args);
+        if (output.isEmpty())
+            throw new OutputEmptyException();
+        return output.get(output.size()-1).contains("System appears to have crashed");
+    }
+
+
+    private void adbUninstallApk(String packageName) throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add(adb);
+        args.add("uninstall");
+        args.add(packageName);
+        List<String> output = execute(args);
+        if (!output.isEmpty()) {
+            if (output.get(0).equals("Success")) {
+                System.out.println("Successfully uninstalled: " + packageName);
+            }
+            else
+                System.err.println("Failure uninstall: " + packageName);
+
+        }
     }
 
     private void adbStartServer() throws IOException, InterruptedException {
@@ -68,14 +127,27 @@ public class BatchWork {
         execute(args, true, false);
     }
 
+    private void adbRebootEmulator() throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add(adb);
+        args.add("shell");
+        args.add("reboot");
+        execute(args, true, false);
+        Thread.sleep(30000);
+    }
+
     private void startEmulator() throws IOException, InterruptedException {
         List<String> args = new ArrayList<>();
         args.add(emulator);
         args.add("-avd");
-        args.add("Nexus_5_API_23");
+        //args.add("Nexus_5_API_23");
+        args.add("N5arm");
+        args.add("-wipe-data");
         execute(args, true, false);
-        Thread.sleep(10000);
+        Thread.sleep(27000);
     }
+
+
 
     private List<String> devicesAttached() throws IOException, InterruptedException {
         List<String> args = new ArrayList<>();
@@ -110,13 +182,20 @@ public class BatchWork {
             Matcher matcher = pattern.matcher(last);
             if (matcher.matches()) {
                 String reason = matcher.group(1);
+
+                /*
+                if (reason.equals("INSTALL_FAILED_INSUFFICIENT_STORAGE")) {
+                    adbRebootEmulator();
+                }
+                */
+
                 System.err.println(reason);
                 apk.setInstallSuccess(false);
                 apk.setFailureReason(reason);
-                throw new InstallationException(reason);
+                Path apkPath = apk.getPath();
+                java.nio.file.Files.move(apkPath, Paths.get(FAILS_FOLDER.toString(), apkPath.getFileName().toString()));
             }
         }
-        apkRepository.save(apk);
     }
 
     private List<String> execute(List<String> args) throws IOException, InterruptedException {
@@ -135,7 +214,8 @@ public class BatchWork {
         BufferedReader br = new BufferedReader(isr);
         if (waitFor) {
             List<String> output = new LinkedList<>();
-            process.waitFor();
+            process.waitFor(3, TimeUnit.MINUTES);
+            //process.waitFor();
             String line;
             while ((line = br.readLine()) != null) {
                 output.add(line);
