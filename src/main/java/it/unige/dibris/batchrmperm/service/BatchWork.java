@@ -7,6 +7,7 @@ import it.unige.dibris.batchrmperm.exception.InstallationException;
 import it.unige.dibris.batchrmperm.exception.OutputEmptyException;
 import it.unige.dibris.batchrmperm.repository.ApkRepository;
 
+import it.unige.dibris.batchrmperm.utility.Utility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,7 @@ public class BatchWork {
             e.printStackTrace();
             BatchRmPermApplication.close();
         }
-        List<Path> apksPath = listApkFiles(Paths.get(APKS_FOLDER));
+        List<Path> apksPath = Utility.listApkFiles(Paths.get(APKS_FOLDER));
 
         for (Path apkPath : apksPath) {
             try {
@@ -225,12 +226,5 @@ public class BatchWork {
         return null;
     }
 
-    private List<Path> listApkFiles(Path dir) throws IOException {
-        List<Path> result = new ArrayList<>();
-        DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.{apk}");
-        for (Path entry: stream) {
-            result.add(entry);
-        }
-        return result;
-    }
+
 }

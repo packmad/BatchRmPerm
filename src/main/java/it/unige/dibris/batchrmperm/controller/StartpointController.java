@@ -2,6 +2,7 @@ package it.unige.dibris.batchrmperm.controller;
 
 
 import it.unige.dibris.batchrmperm.service.BatchWork;
+import it.unige.dibris.batchrmperm.service.MalwarePermission;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,19 +15,27 @@ import java.io.IOException;
 
 @EnableAsync
 @RestController
-@RequestMapping("/start")
 public class StartpointController {
 
     @Autowired
     BatchWork batchWork;
 
-    @RequestMapping(method = RequestMethod.GET)
+    @Autowired
+    MalwarePermission malwarePermission;
+
+    @RequestMapping(value = "start", method = RequestMethod.GET)
     public ResponseEntity<?> startTheWork() {
         try {
             batchWork.doTheWork();
         } catch (IOException e) {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @RequestMapping(value = "malw", method = RequestMethod.GET)
+    public ResponseEntity<?> malwarePerm() {
+        malwarePermission.doTheWork();
         return new ResponseEntity<>(HttpStatus.OK);
     }
 }
