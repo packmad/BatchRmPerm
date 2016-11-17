@@ -6,14 +6,14 @@ import com.google.common.io.Files;
 import net.dongliu.apk.parser.ApkParser;
 import net.dongliu.apk.parser.bean.ApkMeta;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
+import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Entity
 public class Apk {
@@ -41,19 +41,33 @@ public class Apk {
     @NotNull
     private boolean monkeyCrash;
 
+    @ElementCollection
+    private Set<String> permissions;
 
-    private String failureReason;
+    @Lob
+    @Column(length = 8192)
+    private String rmPermOutput;
+
+    @Lob
+    @Column(length = 8192)
+    private String monkeyOutput;
 
     Apk() {}
+
+    public Apk(Path apkPath, String rmPermOutput) throws IOException {
+        this(apkPath);
+        this.rmPermOutput = rmPermOutput;
+    }
 
     public Apk(Path apkPath) throws IOException {
         File apkFile = new File(apkPath.toString());
         ApkMeta apkMeta = new ApkParser(apkFile).getApkMeta();
         packName = apkMeta.getPackageName();
+        permissions = new HashSet<>(apkMeta.getUsesPermissions());
         sha256Hash = Files.hash(apkFile, Hashing.sha256()).toString();
         md5Hash = Files.hash(apkFile, Hashing.md5()).toString();
         installSuccess = false;
-        failureReason = "NO_REASON";
+        monkeyOutput = "NO_REASON";
         Path renamed = apkPath.resolveSibling(String.format("%s_%s.apk", packName, md5Hash));
         java.nio.file.Files.move(apkPath, renamed);
         path = renamed;
@@ -99,13 +113,19 @@ public class Apk {
         this.md5Hash = md5Hash;
     }
 
-    public String getFailureReason() {
-        return failureReason;
+    public String getMonkeyOutput() {
+        return monkeyOutput;
     }
 
-    public void setFailureReason(String failureReason) {
-        this.failureReason = failureReason;
+    public void setMonkeyOutput(String monkeyOutput) {
+        this.monkeyOutput = monkeyOutput;
     }
+
+    public void setMonkeyOutput(List<String> monkeyOutput) {
+        setMonkeyCrash(monkeyOutput.get(monkeyOutput.size()-1).contains("System appears to have crashed"));
+        this.monkeyOutput = String.join("§", monkeyOutput);
+    }
+
 
     public Path getPath() {
         return path;
@@ -123,6 +143,22 @@ public class Apk {
         this.monkeyCrash = monkeyCrash;
     }
 
+    public Set<String> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(Set<String> permissions) {
+        this.permissions = permissions;
+    }
+
+    public String getRmPermOutput() {
+        return rmPermOutput;
+    }
+
+    public void setRmPermOutput(String rmPermOutput) {
+        this.rmPermOutput = rmPermOutput;
+    }
+
     @Override
     public String toString() {
         return "Apk{" +
@@ -131,7 +167,7 @@ public class Apk {
                 ", path=" + path +
                 ", installSuccess=" + installSuccess +
                 ", monkeyCrash=" + monkeyCrash +
-                ", failureReason='" + failureReason + '\'' +
+                ", failureReason='" + monkeyOutput + '\'' +
                 '}';
     }
 }
