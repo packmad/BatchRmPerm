@@ -62,13 +62,14 @@ public class BatchWork {
         for (Path apkPath : apksInFolder) {
             try {
                 System.out.println("--> Start apk=" + apkPath.toString());
-
                 File outApk = new File(RMPERM_FOLDER, apkPath.getFileName().toString());
                 RmPermConsole console = new RmPermConsole();
+
                 System.out.println("--> Start rmperm=" + apkPath.toString());
                 RmPermissions rmPerm = new RmPermissions(console, Utility.getMostUsedAndDangerousPrivacy(),
                         apkPath.toString(), outApk.toString(), dexWithCustomMethods);
                 rmPerm.removePermissions();
+
                 System.out.println("<-- End rmperm=" + apkPath.toString());
 
                 Apk apk = new Apk(outApk.toPath(), String.join("§", console.getConsoleOutput()));
