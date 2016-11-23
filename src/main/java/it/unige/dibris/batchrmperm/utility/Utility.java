@@ -1,6 +1,8 @@
 package it.unige.dibris.batchrmperm.utility;
 
 
+import it.unige.dibris.batchrmperm.domain.Permission;
+
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -64,5 +66,11 @@ public class Utility {
         return result;
     }
 
-
+    public static Set<Permission> createPermissionSet(List<String> permList) {
+        HashSet<Permission> out = new HashSet<>(permList.size());
+        for(String s : permList) {
+            out.add(new Permission(s));
+        }
+        return out;
+    }
 }

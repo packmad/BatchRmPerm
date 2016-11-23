@@ -3,6 +3,7 @@ package it.unige.dibris.batchrmperm.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.hash.Hashing;
 import com.google.common.io.Files;
+import it.unige.dibris.batchrmperm.utility.Utility;
 import net.dongliu.apk.parser.ApkParser;
 import net.dongliu.apk.parser.bean.ApkMeta;
 
@@ -11,66 +12,76 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 @Entity
-public class Apk {
+public abstract class Apk {
     @Id
     @GeneratedValue
     @JsonIgnore
-    private Long id;
+    protected Long id;
 
     @NotNull
-    private String packName;
+    protected String packName;
 
     @NotNull
     @Column(unique = true)
-    private String sha256Hash;
+    protected String sha256Hash;
 
     @NotNull
-    private String md5Hash;
+    protected String md5Hash;
 
     @NotNull
-    private Path path;
+    protected Path path;
 
     @NotNull
-    private boolean installSuccess;
-
-    @NotNull
-    private boolean monkeyCrash;
+    protected double fileSize;
 
     @ElementCollection
-    private Set<String> permissions;
+    protected Set<Permission> permissions;
 
-    @Lob
-    @Column(length = 8192)
-    private String rmPermOutput;
+    // The following fields are only written if the dynamic analysis is performed
 
+    protected boolean installSuccess;
+    protected String installFailReason;
+
+
+    protected boolean monkeyCrash;
+    protected long monkeySeed;
     @Lob
     @Column(length = 8192)
     private String monkeyOutput;
 
+
     Apk() {}
 
-    public Apk(Path apkPath, String rmPermOutput) throws IOException {
-        this(apkPath);
-        this.rmPermOutput = rmPermOutput;
+    public Apk(File apkFile) throws IOException {
+        this(apkFile.toPath());
     }
 
     public Apk(Path apkPath) throws IOException {
         File apkFile = new File(apkPath.toString());
         ApkMeta apkMeta = new ApkParser(apkFile).getApkMeta();
         packName = apkMeta.getPackageName();
-        permissions = new HashSet<>(apkMeta.getUsesPermissions());
+        permissions = Utility.createPermissionSet(apkMeta.getUsesPermissions());
         sha256Hash = Files.hash(apkFile, Hashing.sha256()).toString();
         md5Hash = Files.hash(apkFile, Hashing.md5()).toString();
-        installSuccess = false;
-        monkeyOutput = "NO_REASON";
+        fileSize = apkFile.length();
         Path renamed = apkPath.resolveSibling(String.format("%s_%s.apk", packName, md5Hash));
         java.nio.file.Files.move(apkPath, renamed);
         path = renamed;
+    }
+
+    public void setMonkeyResult(List<String> monkeyOutput) {
+        this.monkeyOutput = String.join("\n", monkeyOutput);
+        String lastLine = monkeyOutput.get(monkeyOutput.size()-1);
+        if (lastLine.contains("System appears to have crashed")) {
+            setMonkeyCrash(true);
+            setMonkeySeed(Long.parseLong((lastLine.substring(lastLine.indexOf("seed ") + 5, lastLine.length()))));
+        }
     }
 
     public Long getId() {
@@ -121,11 +132,22 @@ public class Apk {
         this.monkeyOutput = monkeyOutput;
     }
 
-    public void setMonkeyOutput(List<String> monkeyOutput) {
-        setMonkeyCrash(monkeyOutput.get(monkeyOutput.size()-1).contains("System appears to have crashed"));
-        this.monkeyOutput = String.join("§", monkeyOutput);
+
+    public double getFileSize() {
+        return fileSize;
     }
 
+    public void setFileSize(double fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public long getMonkeySeed() {
+        return monkeySeed;
+    }
+
+    public void setMonkeySeed(long monkeySeed) {
+        this.monkeySeed = monkeySeed;
+    }
 
     public Path getPath() {
         return path;
@@ -143,31 +165,21 @@ public class Apk {
         this.monkeyCrash = monkeyCrash;
     }
 
-    public Set<String> getPermissions() {
+    public Set<Permission> getPermissions() {
         return permissions;
     }
 
-    public void setPermissions(Set<String> permissions) {
+    public void setPermissions(Set<Permission> permissions) {
         this.permissions = permissions;
     }
 
-    public String getRmPermOutput() {
-        return rmPermOutput;
+    public String getInstallFailReason() {
+        return installFailReason;
     }
 
-    public void setRmPermOutput(String rmPermOutput) {
-        this.rmPermOutput = rmPermOutput;
+    public void setInstallFailReason(String installFailReason) {
+        this.installFailReason = installFailReason;
     }
 
-    @Override
-    public String toString() {
-        return "Apk{" +
-                "packName='" + packName + '\'' +
-                ", md5Hash='" + md5Hash + '\'' +
-                ", path=" + path +
-                ", installSuccess=" + installSuccess +
-                ", monkeyCrash=" + monkeyCrash +
-                ", failureReason='" + monkeyOutput + '\'' +
-                '}';
-    }
+
 }

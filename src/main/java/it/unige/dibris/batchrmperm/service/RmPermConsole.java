@@ -21,7 +21,7 @@ public class RmPermConsole implements IOutput {
     @Override
     public void printf(Level level, String s, Object... objects) {
         String formatted = String.format(s, objects);
-        if (formatted.startsWith("Couldn't find") || formatted.startsWith("Method Landroid/view/accessib"))
+        if (formatted.startsWith("Couldn't find") || formatted.startsWith("Method Landroid/view/"))
             return; // useless info: Couldn't find * inside the manifest OR the Accessibility permission
         if (level == Level.ERROR)
             consoleOutput.add(formatted);
