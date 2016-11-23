@@ -8,6 +8,8 @@ public class Permission {
     @Id
     private String permissionName;
 
+    Permission() {}
+
     public Permission(String permissionName) {
         this.permissionName = permissionName;
     }

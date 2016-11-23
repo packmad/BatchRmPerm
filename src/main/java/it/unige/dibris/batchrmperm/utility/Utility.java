@@ -2,6 +2,8 @@ package it.unige.dibris.batchrmperm.utility;
 
 
 import it.unige.dibris.batchrmperm.domain.Permission;
+import it.unige.dibris.batchrmperm.repository.PermissionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -15,6 +17,9 @@ import java.util.Set;
 public class Utility {
     private static final Set<String> mostUsedNotDangerousPerms = new HashSet<>(10);
     private static final Set<String> mostUsedAndDangerousPrivacy = new HashSet<>(21);
+
+    @Autowired
+    PermissionRepository permissionRepository;
 
     static {
         mostUsedNotDangerousPerms.add("android.permission.RECEIVE_BOOT_COMPLETED");
@@ -69,7 +74,8 @@ public class Utility {
     public static Set<Permission> createPermissionSet(List<String> permList) {
         HashSet<Permission> out = new HashSet<>(permList.size());
         for(String s : permList) {
-            out.add(new Permission(s));
+            Permission p = new Permission(s);
+            out.add(p);
         }
         return out;
     }

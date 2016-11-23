@@ -40,8 +40,11 @@ public abstract class Apk {
     @NotNull
     protected double fileSize;
 
-    @ElementCollection
+    @ManyToMany(cascade = CascadeType.REFRESH)
     protected Set<Permission> permissions;
+
+    @Transient
+    protected Set<String> tmpPermSet;
 
     // The following fields are only written if the dynamic analysis is performed
 
@@ -66,7 +69,7 @@ public abstract class Apk {
         File apkFile = new File(apkPath.toString());
         ApkMeta apkMeta = new ApkParser(apkFile).getApkMeta();
         packName = apkMeta.getPackageName();
-        permissions = Utility.createPermissionSet(apkMeta.getUsesPermissions());
+        tmpPermSet = new HashSet<>(apkMeta.getUsesPermissions());
         sha256Hash = Files.hash(apkFile, Hashing.sha256()).toString();
         md5Hash = Files.hash(apkFile, Hashing.md5()).toString();
         fileSize = apkFile.length();
@@ -132,6 +135,13 @@ public abstract class Apk {
         this.monkeyOutput = monkeyOutput;
     }
 
+    public Set<String> getTmpPermSet() {
+        return tmpPermSet;
+    }
+
+    public void setTmpPermSet(Set<String> tmpPermSet) {
+        this.tmpPermSet = tmpPermSet;
+    }
 
     public double getFileSize() {
         return fileSize;

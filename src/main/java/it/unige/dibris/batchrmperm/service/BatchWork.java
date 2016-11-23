@@ -6,10 +6,12 @@ import it.unige.dibris.batchrmperm.BatchRmPermApplication;
 import it.unige.dibris.batchrmperm.domain.Apk;
 import it.unige.dibris.batchrmperm.domain.ApkCustom;
 import it.unige.dibris.batchrmperm.domain.ApkOriginal;
+import it.unige.dibris.batchrmperm.domain.Permission;
 import it.unige.dibris.batchrmperm.engine.ExecuteCmd;
 import it.unige.dibris.batchrmperm.repository.ApkCustomRepository;
 import it.unige.dibris.batchrmperm.repository.ApkOriginalRepository;
 
+import it.unige.dibris.batchrmperm.repository.PermissionRepository;
 import it.unige.dibris.batchrmperm.utility.Utility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -21,7 +23,9 @@ import java.nio.file.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,6 +43,9 @@ public class BatchWork {
 
     @Autowired
     ApkOriginalRepository apkOriginalRepository;
+
+    @Autowired
+    PermissionRepository permissionRepository;
 
 
     @Async
@@ -103,6 +110,8 @@ public class BatchWork {
                 executeCmd.returnToHomeScreen();
                 executeCmd.uninstallApk(apkOriginal.getPackName());
 
+                setPermissionFromDb(apkOriginal);
+                setPermissionFromDb(apkCustom);
                 apkCustomRepository.save(apkCustom);
 
 
@@ -133,6 +142,20 @@ public class BatchWork {
                 apk.setInstallFailReason(matcher.group(1));
             }
         }
+    }
+
+    private synchronized void setPermissionFromDb(Apk apk) {
+        Set<String> apkTmpSet = apk.getTmpPermSet();
+        HashSet<Permission> out = new HashSet<>(apkTmpSet.size());
+        for (String permStr : apkTmpSet) {
+            Permission p = permissionRepository.findOne(permStr);
+            if (p == null) {
+                p = new Permission(permStr);
+                permissionRepository.save(p);
+            }
+            out.add(p);
+        }
+        apk.setPermissions(out);
     }
 
 }
