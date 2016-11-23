@@ -31,9 +31,6 @@ import java.util.regex.Pattern;
 
 @Service
 public class BatchWork {
-    //private static final String APKS_FOLDER = "/media/simo/HDEsterno/ApkSamples/";
-    //private static final String APKS_FOLDER = "/home/simo/AndroidStudioProjects/MyApplication/app/build/outputs/apk";
-    //private static final File FAILS_FOLDER = new File(APKS_FOLDER, "Fails");
     private static final String dexWithCustomMethods = "/home/simo/IdeaProjects/BatchRmPerm/src/main/resources/custom.dex";
 
     private Pattern pattern = Pattern.compile("^Failure \\[(\\w*)\\]$");
@@ -53,7 +50,7 @@ public class BatchWork {
         String APKS_FOLDER = null;
 
         switch (device) {
-            case "41008d8247677000":
+            case "F9NPFX069418":
                 APKS_FOLDER = "/media/simo/HDEsterno/AApks/aptoide";
                 break;
             case "F9NPFX069627":
