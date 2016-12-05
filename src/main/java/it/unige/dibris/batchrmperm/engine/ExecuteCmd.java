@@ -1,9 +1,12 @@
 package it.unige.dibris.batchrmperm.engine;
 
+import it.unige.dibris.batchrmperm.domain.Device;
 import it.unige.dibris.batchrmperm.exception.OutputEmptyException;
 
-import java.io.*;
-
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -14,8 +17,66 @@ public class ExecuteCmd {
     private static final String ADB = "/home/simo/android-sdk-linux/platform-tools/adb";
     private final String device;
 
-    public ExecuteCmd(String device) {
-        this.device = device;
+    public ExecuteCmd(Device device) {
+        this.device = device.getId();
+    }
+
+    public static void startAdbServer() throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add(ADB);
+        args.add("start-server");
+        execute(args, true, false);
+    }
+
+    public static List<String> devicesAttached() throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add(ADB);
+        args.add("devices");
+        List<String> output = execute(args);
+        output.remove("");
+        output.remove("List of devices attached");
+        for (final ListIterator<String> i = output.listIterator(); i.hasNext(); ) {
+            final String element = i.next();
+            i.set(element.replaceAll("\\tdevice", ""));
+        }
+        return output;
+    }
+
+    public static void startEmulator() throws IOException, InterruptedException {
+        List<String> args = new ArrayList<>();
+        args.add(EMULATOR);
+        args.add("-avd");
+        args.add("Nexus_5_API_22");
+        args.add("-wipe-data");
+        execute(args, true, false);
+        Thread.sleep(27000);
+    }
+
+    private static List<String> execute(List<String> args) throws IOException, InterruptedException {
+        return execute(args, true, true);
+    }
+
+    private static List<String> execute(List<String> args, boolean getInputStream, boolean waitFor) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(args);
+        Process process = pb.start();
+        InputStream is;
+        if (getInputStream)
+            is = process.getInputStream();
+        else
+            is = process.getErrorStream();
+        InputStreamReader isr = new InputStreamReader(is);
+        BufferedReader br = new BufferedReader(isr);
+        if (waitFor) {
+            List<String> output = new LinkedList<>();
+            process.waitFor(3, TimeUnit.MINUTES);
+            //process.waitFor();
+            String line;
+            while ((line = br.readLine()) != null) {
+                output.add(line);
+            }
+            return output;
+        }
+        return null;
     }
 
     public void returnToHomeScreen() throws IOException, InterruptedException {
@@ -23,7 +84,6 @@ public class ExecuteCmd {
                 "-c", "android.intent.category.HOME"};
         execute(Arrays.asList(args));
     }
-
 
     /**
      *
@@ -49,7 +109,6 @@ public class ExecuteCmd {
         return output;
     }
 
-
     public void uninstallApk(String packageName) throws IOException, InterruptedException {
         List<String> args = new ArrayList<>();
         args.add(ADB);
@@ -68,15 +127,6 @@ public class ExecuteCmd {
         }
     }
 
-
-    public static void startAdbServer() throws IOException, InterruptedException {
-        List<String> args = new ArrayList<>();
-        args.add(ADB);
-        args.add("start-server");
-        execute(args, true, false);
-    }
-
-
     public void rebootDevice() throws IOException, InterruptedException {
         List<String> args = new ArrayList<>();
         args.add(ADB);
@@ -88,22 +138,6 @@ public class ExecuteCmd {
         Thread.sleep(30000);
     }
 
-
-    public static List<String> devicesAttached() throws IOException, InterruptedException {
-        List<String> args = new ArrayList<>();
-        args.add(ADB);
-        args.add("devices");
-        List<String> output = execute(args);
-        output.remove("");
-        output.remove("List of devices attached");
-        for (final ListIterator<String> i = output.listIterator(); i.hasNext();) {
-            final String element = i.next();
-            i.set(element.replaceAll("\\tdevice", ""));
-        }
-        return output;
-    }
-
-
     public List<String> installApk(String apkPath) throws IOException, InterruptedException {
         List<String> args = new ArrayList<>();
         args.add(ADB);
@@ -113,46 +147,6 @@ public class ExecuteCmd {
         args.add("-r");
         args.add(apkPath);
         return execute(args);
-    }
-
-
-    public static void startEmulator() throws IOException, InterruptedException {
-        List<String> args = new ArrayList<>();
-        args.add(EMULATOR);
-        args.add("-avd");
-        args.add("Nexus_5_API_22");
-        args.add("-wipe-data");
-        execute(args, true, false);
-        Thread.sleep(27000);
-    }
-
-
-    private static List<String> execute(List<String> args) throws IOException, InterruptedException {
-        return execute(args, true, true);
-    }
-
-
-    private static List<String> execute(List<String> args, boolean getInputStream, boolean waitFor) throws IOException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder(args);
-        Process process = pb.start();
-        InputStream is;
-        if (getInputStream)
-            is = process.getInputStream();
-        else
-            is = process.getErrorStream();
-        InputStreamReader isr = new InputStreamReader(is);
-        BufferedReader br = new BufferedReader(isr);
-        if (waitFor) {
-            List<String> output = new LinkedList<>();
-            process.waitFor(3, TimeUnit.MINUTES);
-            //process.waitFor();
-            String line;
-            while ((line = br.readLine()) != null) {
-                output.add(line);
-            }
-            return output;
-        }
-        return null;
     }
 
 }

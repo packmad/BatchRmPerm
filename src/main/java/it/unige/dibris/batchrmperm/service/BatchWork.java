@@ -3,23 +3,20 @@ package it.unige.dibris.batchrmperm.service;
 
 import it.saonzo.rmperm.RmPermissions;
 import it.unige.dibris.batchrmperm.BatchRmPermApplication;
-import it.unige.dibris.batchrmperm.domain.Apk;
-import it.unige.dibris.batchrmperm.domain.ApkCustom;
-import it.unige.dibris.batchrmperm.domain.ApkOriginal;
-import it.unige.dibris.batchrmperm.domain.Permission;
+import it.unige.dibris.batchrmperm.domain.*;
 import it.unige.dibris.batchrmperm.engine.ExecuteCmd;
 import it.unige.dibris.batchrmperm.repository.ApkCustomRepository;
 import it.unige.dibris.batchrmperm.repository.ApkOriginalRepository;
-
 import it.unige.dibris.batchrmperm.repository.PermissionRepository;
 import it.unige.dibris.batchrmperm.utility.Utility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-
-import java.io.*;
-import java.nio.file.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -31,41 +28,24 @@ import java.util.regex.Pattern;
 
 @Service
 public class BatchWork {
-    private static final String dexWithCustomMethods = "/home/simo/IdeaProjects/BatchRmPerm/src/main/resources/custom.dex";
-
+    private static final String dexWithCustomMethods = "/home/simo/IdeaProjects/BatchRmPerm/src/main/resources/custom.dex"; //TODO
+    @Autowired
+    private ApkCustomRepository apkCustomRepository;
+    @Autowired
+    private ApkOriginalRepository apkOriginalRepository;
+    @Autowired
+    private PermissionRepository permissionRepository;
     private Pattern pattern = Pattern.compile("^Failure \\[(\\w*)\\]$");
 
-    @Autowired
-    ApkCustomRepository apkCustomRepository;
-
-    @Autowired
-    ApkOriginalRepository apkOriginalRepository;
-
-    @Autowired
-    PermissionRepository permissionRepository;
-
-
     @Async
-    public void doTheWork(String device) throws IOException {
-        String APKS_FOLDER = null;
-
-        switch (device) {
-            case "F9NPFX069418":
-                APKS_FOLDER = "/media/simo/HDEsterno/AApks/aptoide";
-                break;
-            case "F9NPFX069627":
-                APKS_FOLDER = "/media/simo/HDEsterno/AApks/uptodown";
-                break;
-        }
-        File RMPERM_FOLDER = new File(APKS_FOLDER, "rmperm");
-        //File FAILS_FOLDER = new File(RMPERM_FOLDER, "fail");
-
-
+    public void doTheWork(Device device) throws IOException {
         System.out.println("--> Start thread=" + Thread.currentThread().getName());
+
+        String apksFolder = device.getFolder().toString();
+        File customizedFolder = new File(apksFolder, "custom");
         ExecuteCmd executeCmd = new ExecuteCmd(device);
         try {
-            RMPERM_FOLDER.mkdir();
-            //FAILS_FOLDER.mkdir();
+            customizedFolder.mkdir();
             if (ExecuteCmd.devicesAttached().isEmpty()) {
                 ExecuteCmd.startEmulator();
             }
@@ -74,14 +54,14 @@ public class BatchWork {
             BatchRmPermApplication.close();
         }
 
-        List<Path> apksInFolder = Utility.listApkFiles(Paths.get(APKS_FOLDER));
+        List<Path> apksInFolder = Utility.listApkFiles(Paths.get(apksFolder));
         for (Path apkPath : apksInFolder) {
             try {
                 System.out.println("--> Start apk=" + apkPath.toString());
                 ApkOriginal apkOriginal = new ApkOriginal(apkPath);
 
                 RmPermConsole console = new RmPermConsole();
-                File customizedApk = new File(RMPERM_FOLDER, "tmpApkFile.apk");
+                File customizedApk = new File(customizedFolder, "tmpApkFile.apk");
                 Duration deltaTime = Duration.ZERO;
                 Instant beginTime = Instant.now();
                 RmPermissions rmPerm = new RmPermissions(console, Utility.getMostUsedAndDangerousPrivacy(),
@@ -97,7 +77,6 @@ public class BatchWork {
                         tryToInstall(executeCmd, apkOriginal);
                         if (apkOriginal.isInstallSuccess()) {
                             apkOriginal.setMonkeyResult(executeCmd.testMonkey(apkOriginal.getPackName())); // dyn test on original apk
-
                         }
                     }
                 }

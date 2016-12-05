@@ -3,7 +3,6 @@ package it.unige.dibris.batchrmperm.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.hash.Hashing;
 import com.google.common.io.Files;
-import it.unige.dibris.batchrmperm.utility.Utility;
 import net.dongliu.apk.parser.ApkParser;
 import net.dongliu.apk.parser.bean.ApkMeta;
 
@@ -12,7 +11,6 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,13 +47,15 @@ public abstract class Apk {
     // The following fields are only written if the dynamic analysis is performed
 
     protected boolean installSuccess;
+
+    @Transient
     protected String installFailReason;
 
 
     protected boolean monkeyCrash;
     protected long monkeySeed;
-    @Lob
-    @Column(length = 8192)
+
+    @Transient
     private String monkeyOutput;
 
 
