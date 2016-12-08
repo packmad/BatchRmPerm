@@ -17,8 +17,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -28,7 +26,7 @@ import java.util.regex.Pattern;
 
 @Service
 public class BatchWork {
-    private static final String dexWithCustomMethods = "/home/simo/IdeaProjects/BatchRmPerm/src/main/resources/custom.dex"; //TODO
+    private static final File dexWithCustomMethods = new File("/home/simo/IdeaProjects/BatchRmPerm/src/main/resources/classes.dex"); //TODO
     @Autowired
     private ApkCustomRepository apkCustomRepository;
     @Autowired
@@ -39,6 +37,11 @@ public class BatchWork {
 
     @Async
     public void doTheWork(Device device) throws IOException {
+        if (!dexWithCustomMethods.exists()) {
+            System.err.println("Custom dex doesn't exists: " + dexWithCustomMethods.toString());
+            BatchRmPermApplication.close();
+        }
+
         System.out.println("--> Start thread=" + Thread.currentThread().getName());
 
         String apksFolder = device.getFolder().toString();
@@ -62,13 +65,13 @@ public class BatchWork {
 
                 RmPermConsole console = new RmPermConsole();
                 File customizedApk = new File(customizedFolder, "tmpApkFile.apk");
-                Duration deltaTime = Duration.ZERO;
-                Instant beginTime = Instant.now();
-                RmPermissions rmPerm = new RmPermissions(console, Utility.getMostUsedAndDangerousPrivacy(),
-                        apkOriginal.getPath().toString(), customizedApk.toString(), dexWithCustomMethods);
+                long startTime = System.nanoTime();
+                RmPermissions rmPerm = new RmPermissions(console, Utility.getDangerousPermissions(),
+                        apkOriginal.getPath().toString(), customizedApk.toString(), dexWithCustomMethods.toString());
                 rmPerm.removePermissions();
-                deltaTime = Duration.between(beginTime, Instant.now());
-                ApkCustom apkCustom = new ApkCustom(apkOriginal, customizedApk, deltaTime.getSeconds());
+                long deltaTime = System.nanoTime() - startTime;
+                ApkCustom apkCustom = new ApkCustom(apkOriginal, customizedApk, deltaTime);
+                apkCustom.setRmPermOutput(console.getConsoleOutputToString());
 
                 tryToInstall(executeCmd, apkCustom);
                 if (apkCustom.isInstallSuccess()) {
@@ -89,9 +92,11 @@ public class BatchWork {
                 setPermissionFromDb(apkOriginal);
                 setPermissionFromDb(apkCustom);
                 apkCustomRepository.save(apkCustom);
-
+                customizedApk.delete(); // delete custom apk for saving space
 
                 System.out.println("<-- End apk=" + apkPath.toString());
+            } catch (net.dongliu.apk.parser.exception.ParserException pe) {
+                new File(apkPath.toString()).delete(); // useless corrupted apk
             } catch (Exception e) {
                 e.printStackTrace();
             }

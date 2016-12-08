@@ -7,7 +7,6 @@ import it.unige.dibris.batchrmperm.domain.Device;
 import it.unige.dibris.batchrmperm.engine.ExecuteCmd;
 import it.unige.dibris.batchrmperm.repository.ApkCustomRepository;
 import it.unige.dibris.batchrmperm.service.BatchWork;
-import it.unige.dibris.batchrmperm.service.MalwarePermission;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,8 +28,6 @@ public class StartpointController {
     @Autowired
     BatchWork batchWork;
 
-    @Autowired
-    MalwarePermission malwarePermission;
 
     @RequestMapping(value = "start/{device}", method = RequestMethod.GET)
     public ResponseEntity<?> startTheWork(@PathVariable String device) {
@@ -49,6 +46,9 @@ public class StartpointController {
 
     @RequestMapping(value = "getResult", method = RequestMethod.GET)
     public ResponseEntity<?> getResult() {
+        int apksGplay = 0;
+        int apksAptoide = 0;
+        int apksUptodown = 0;
         int customInstallSuccess = 0;
         int customInstallFail = 0;
         int customInstallSuccessButMonkeyCrash = 0;
@@ -74,7 +74,7 @@ public class StartpointController {
 
         for (ApkCustom apkCustom : customApks) {
             totApks++;
-            summDurationSec += apkCustom.getRemovalTimeSec();
+            summDurationSec += apkCustom.getRemovalTimeNanoSec();
             ApkOriginal apkOriginal = apkCustom.getApkOriginal();
             if (apkCustom.isInstallSuccess()) {
                 customInstallSuccess++;
@@ -105,7 +105,7 @@ public class StartpointController {
         varDurationSec = 0.0;
         varRatios = 0.0;
         for (ApkCustom apkCustom : customApks) {
-            varDurationSec += Math.pow(((double) apkCustom.getRemovalTimeSec() - avgDurationSec), 2);
+            varDurationSec += Math.pow(((double) apkCustom.getRemovalTimeNanoSec() - avgDurationSec), 2);
             varRatios += Math.pow((apkCustom.getApkOriginal().getFileSize() / apkCustom.getFileSize() - avgRatios), 2);
         }
         stdDeviationRemSec = Math.sqrt(varDurationSec / (totApks - 1));
@@ -115,9 +115,10 @@ public class StartpointController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
-    @RequestMapping(value = "malw", method = RequestMethod.GET)
-    public ResponseEntity<?> malwarePerm() {
-        malwarePermission.doTheWork();
+
+    @RequestMapping(value = "androidResult/{fileSize}/{time}", method = RequestMethod.GET)
+    public ResponseEntity<?> androidResult(@PathVariable String fileSize, @PathVariable String time) {
+
         return new ResponseEntity<>(HttpStatus.OK);
     }
 

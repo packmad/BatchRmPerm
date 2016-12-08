@@ -44,18 +44,18 @@ public abstract class Apk {
     @Transient
     protected Set<String> tmpPermSet;
 
-    // The following fields are only written if the dynamic analysis is performed
-
     protected boolean installSuccess;
 
-    @Transient
     protected String installFailReason;
 
+    // The following fields are only written if the dynamic analysis is performed
 
     protected boolean monkeyCrash;
+
     protected long monkeySeed;
 
-    @Transient
+    @Lob
+    @Column(length = 8192)
     private String monkeyOutput;
 
 
@@ -73,7 +73,7 @@ public abstract class Apk {
         sha256Hash = Files.hash(apkFile, Hashing.sha256()).toString();
         md5Hash = Files.hash(apkFile, Hashing.md5()).toString();
         fileSize = apkFile.length();
-        Path renamed = apkPath.resolveSibling(String.format("%s_%s.apk", packName, md5Hash));
+        Path renamed = apkPath.resolveSibling(String.format("%d_%s_%s.apk", apkFile.length(), packName, md5Hash));
         java.nio.file.Files.move(apkPath, renamed);
         path = renamed;
     }

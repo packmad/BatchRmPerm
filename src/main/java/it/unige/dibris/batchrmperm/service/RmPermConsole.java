@@ -18,6 +18,10 @@ public class RmPermConsole implements IOutput {
         return consoleOutput;
     }
 
+    public String getConsoleOutputToString() {
+        return String.join(" ", consoleOutput);
+    }
+
     @Override
     public void printf(Level level, String s, Object... objects) {
         String formatted = String.format(s, objects);

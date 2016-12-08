@@ -1,6 +1,5 @@
 package it.unige.dibris.batchrmperm.domain;
 
-import javax.annotation.Nonnull;
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.io.File;
@@ -17,16 +16,16 @@ public class ApkCustom extends Apk {
     private String rmPermOutput;
 
     @NotNull
-    private long removalTimeSec;
+    private long removalTimeNanoSec;
 
     @NotNull
     private double sizeWrtOriginal;
 
     ApkCustom() {}
 
-    public ApkCustom(ApkOriginal apkOriginal, File customizedApk, long removalTimeSec) throws IOException {
+    public ApkCustom(ApkOriginal apkOriginal, File customizedApk, long removalTimeNanoSec) throws IOException {
         super(customizedApk);
-        this.removalTimeSec = removalTimeSec;
+        this.removalTimeNanoSec = removalTimeNanoSec;
         this.apkOriginal = apkOriginal;
         this.sizeWrtOriginal = this.getFileSize() - apkOriginal.getFileSize();
     }
@@ -39,12 +38,12 @@ public class ApkCustom extends Apk {
         this.rmPermOutput = rmPermOutput;
     }
 
-    public long getRemovalTimeSec() {
-        return removalTimeSec;
+    public long getRemovalTimeNanoSec() {
+        return removalTimeNanoSec;
     }
 
-    public void setRemovalTimeSec(long removalTimeSec) {
-        this.removalTimeSec = removalTimeSec;
+    public void setRemovalTimeNanoSec(long removalTimeNanoSec) {
+        this.removalTimeNanoSec = removalTimeNanoSec;
     }
 
     public ApkOriginal getApkOriginal() {
