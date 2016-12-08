@@ -12,6 +12,7 @@ import it.unige.dibris.batchrmperm.utility.Utility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,46 +60,47 @@ public class BatchWork {
 
         List<Path> apksInFolder = Utility.listApkFiles(Paths.get(apksFolder));
         for (Path apkPath : apksInFolder) {
-            try {
-                System.out.println("--> Start apk=" + apkPath.toString());
-                ApkOriginal apkOriginal = new ApkOriginal(apkPath);
+            if (StringUtils.countOccurrencesOf(apkPath.getFileName().toString(), "_") < 2) {
+                try {
+                    System.out.println("--> Start apk=" + apkPath.toString());
+                    ApkOriginal apkOriginal = new ApkOriginal(apkPath);
 
-                RmPermConsole console = new RmPermConsole();
-                File customizedApk = new File(customizedFolder, "tmpApkFile.apk");
-                long startTime = System.nanoTime();
-                RmPermissions rmPerm = new RmPermissions(console, Utility.getDangerousPermissions(),
-                        apkOriginal.getPath().toString(), customizedApk.toString(), dexWithCustomMethods.toString());
-                rmPerm.removePermissions();
-                long deltaTime = System.nanoTime() - startTime;
-                ApkCustom apkCustom = new ApkCustom(apkOriginal, customizedApk, deltaTime);
-                apkCustom.setRmPermOutput(console.getConsoleOutputToString());
+                    RmPermConsole console = new RmPermConsole();
+                    File customizedApk = new File(customizedFolder, "tmpApkFile.apk");
+                    long startTime = System.nanoTime();
+                    RmPermissions rmPerm = new RmPermissions(console, Utility.getDangerousPermissions(),
+                            apkOriginal.getPath().toString(), customizedApk.toString(), dexWithCustomMethods.toString());
+                    rmPerm.removePermissions();
+                    long deltaTime = System.nanoTime() - startTime;
+                    ApkCustom apkCustom = new ApkCustom(apkOriginal, customizedApk, deltaTime);
+                    apkCustom.setRmPermOutput(console.getConsoleOutputToString());
 
-                tryToInstall(executeCmd, apkCustom);
-                if (apkCustom.isInstallSuccess()) {
-                    apkCustom.setMonkeyResult(executeCmd.testMonkey(apkCustom.getPackName())); // dyn test on custom apk
-                    if (apkCustom.isMonkeyCrash()) {
-                        tryToInstall(executeCmd, apkOriginal);
-                        if (apkOriginal.isInstallSuccess()) {
-                            apkOriginal.setMonkeyResult(executeCmd.testMonkey(apkOriginal.getPackName())); // dyn test on original apk
+                    tryToInstall(executeCmd, apkCustom);
+                    if (apkCustom.isInstallSuccess()) {
+                        apkCustom.setMonkeyResult(executeCmd.testMonkey(apkCustom.getPackName())); // dyn test on custom apk
+                        if (apkCustom.isMonkeyCrash()) {
+                            tryToInstall(executeCmd, apkOriginal);
+                            if (apkOriginal.isInstallSuccess()) {
+                                apkOriginal.setMonkeyResult(executeCmd.testMonkey(apkOriginal.getPackName())); // dyn test on original apk
+                            }
                         }
+                    } else {
+                        tryToInstall(executeCmd, apkOriginal);
                     }
-                }
-                else {
-                    tryToInstall(executeCmd, apkOriginal);
-                }
-                executeCmd.returnToHomeScreen();
-                executeCmd.uninstallApk(apkOriginal.getPackName());
+                    executeCmd.returnToHomeScreen();
+                    executeCmd.uninstallApk(apkOriginal.getPackName());
 
-                setPermissionFromDb(apkOriginal);
-                setPermissionFromDb(apkCustom);
-                apkCustomRepository.save(apkCustom);
-                customizedApk.delete(); // delete custom apk for saving space
+                    setPermissionFromDb(apkOriginal);
+                    setPermissionFromDb(apkCustom);
+                    apkCustomRepository.save(apkCustom);
+                    customizedApk.delete(); // delete custom apk for saving space
 
-                System.out.println("<-- End apk=" + apkPath.toString());
-            } catch (net.dongliu.apk.parser.exception.ParserException pe) {
-                new File(apkPath.toString()).delete(); // useless corrupted apk
-            } catch (Exception e) {
-                e.printStackTrace();
+                    System.out.println("<-- End apk=" + apkPath.toString());
+                } catch (net.dongliu.apk.parser.exception.ParserException pe) {
+                    new File(apkPath.toString()).delete(); // useless corrupted apk
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
         System.out.println("<-- End thread=" + Thread.currentThread().getName());
