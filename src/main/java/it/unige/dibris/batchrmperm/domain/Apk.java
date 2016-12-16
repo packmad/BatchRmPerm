@@ -38,6 +38,7 @@ public abstract class Apk {
     @NotNull
     protected double fileSize;
 
+
     @ManyToMany(cascade = CascadeType.REFRESH)
     protected Set<Permission> permissions;
 
