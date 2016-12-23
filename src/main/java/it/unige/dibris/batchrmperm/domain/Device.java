@@ -11,11 +11,12 @@ public class Device {
     public Device(String id) {
         this.id = id;
         switch (id) {
+            //TODO
             case "F9NPFX069418":
                 this.folder = new File("/media/simo/HDEsterno/AApks/aptoide");
                 break;
             case "F9NPFX069627":
-                this.folder = new File("/media/simo/HDEsterno/AApks/uptodown");
+                this.folder = new File("/media/simo/HDEsterno/AApks/googleplay");
                 break;
             default:
                 throw new IllegalArgumentException(String.format("Unknown device id: '%s'", id));

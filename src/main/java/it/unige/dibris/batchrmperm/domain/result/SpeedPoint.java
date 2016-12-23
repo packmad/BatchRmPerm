@@ -1,12 +1,12 @@
-package it.unige.dibris.batchrmperm.domain.comparable;
+package it.unige.dibris.batchrmperm.domain.result;
 
 
 public class SpeedPoint implements Comparable<SpeedPoint> {
-    double seconds;
+    double nanosec;
     double fileSize;
 
-    public SpeedPoint(double seconds, double fileSize) {
-        this.seconds = seconds;
+    public SpeedPoint(double nanosec, double fileSize) {
+        this.nanosec = nanosec;
         this.fileSize = fileSize;
     }
 
@@ -23,6 +23,6 @@ public class SpeedPoint implements Comparable<SpeedPoint> {
 
     @Override
     public String toString() {
-        return String.format("%d %f", (long) fileSize, seconds);
+        return String.format("%f %f", fileSize / 1048576.0, nanosec / 1000000000.0);
     }
 }

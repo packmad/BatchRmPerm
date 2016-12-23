@@ -14,6 +14,8 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 @Entity
 public abstract class Apk {
@@ -38,6 +40,8 @@ public abstract class Apk {
     @NotNull
     protected double fileSize;
 
+    @NotNull
+    protected double dexSize;
 
     @ManyToMany(cascade = CascadeType.REFRESH)
     protected Set<Permission> permissions;
@@ -49,7 +53,7 @@ public abstract class Apk {
 
     protected String installFailReason;
 
-    // The following fields are only written if the dynamic analysis is performed
+    // Following fields are only written if the dynamic analysis is performed
 
     protected boolean monkeyCrash;
 
@@ -67,6 +71,10 @@ public abstract class Apk {
     }
 
     public Apk(Path apkPath) throws IOException {
+        JarFile jarFile = new JarFile(apkPath.toString());
+        JarEntry jarEntry = jarFile.getJarEntry("classes.dex");
+        dexSize = jarEntry.getSize();
+
         File apkFile = new File(apkPath.toString());
         ApkMeta apkMeta = new ApkParser(apkFile).getApkMeta();
         packName = apkMeta.getPackageName();
@@ -192,5 +200,19 @@ public abstract class Apk {
         this.installFailReason = installFailReason;
     }
 
+    public double getDexSize() {
+        return dexSize;
+    }
 
+    public void setDexSize(double dexSize) {
+        this.dexSize = dexSize;
+    }
+
+    @Override
+    public String toString() {
+        return "Apk{" +
+                "packName='" + packName + '\'' +
+                ", md5Hash='" + md5Hash + '\'' +
+                '}';
+    }
 }

@@ -4,8 +4,11 @@ package it.unige.dibris.batchrmperm.controller;
 import it.unige.dibris.batchrmperm.domain.ApkCustom;
 import it.unige.dibris.batchrmperm.domain.ApkOriginal;
 import it.unige.dibris.batchrmperm.domain.Device;
-import it.unige.dibris.batchrmperm.domain.comparable.PermDeltaCardinality;
-import it.unige.dibris.batchrmperm.domain.comparable.SpeedPoint;
+import it.unige.dibris.batchrmperm.domain.Permission;
+import it.unige.dibris.batchrmperm.domain.result.DangerousPermissionCounter;
+import it.unige.dibris.batchrmperm.domain.result.PermissionCounter;
+import it.unige.dibris.batchrmperm.domain.result.PermissionFreq;
+import it.unige.dibris.batchrmperm.domain.result.SpeedPoint;
 import it.unige.dibris.batchrmperm.engine.ExecuteCmd;
 import it.unige.dibris.batchrmperm.repository.ApkCustomRepository;
 import it.unige.dibris.batchrmperm.service.BatchWork;
@@ -55,9 +58,6 @@ public class StartpointController {
 
     @RequestMapping(value = "getResult", method = RequestMethod.GET)
     public ResponseEntity<?> getResult() {
-        int apksGplay = 0;
-        int apksAptoide = 0;
-        int apksUptodown = 0;
         int customInstallSuccess = 0;
         int customInstallFail = 0;
         int customInstallSuccessButMonkeyCrash = 0;
@@ -66,15 +66,8 @@ public class StartpointController {
         int customInstallSuccessAndMonkeySuccess = 0;
         int customInstallFailButOriginalInstallSuccess = 0;
         int customInstallFailAndOriginalInstallFail = 0;
+        int noRedirect = 0;
         double totApks = 0.0;
-        double summDurationSec = 0.0;
-        double summRatios = 0.0;
-        double avgDurationSec = 0.0;
-        double avgRatios = 0.0;
-        double varDurationSec = 0.0;
-        double varRatios = 0.0;
-        double stdDeviationRemSec = 0.0;
-        double stdDeviationRatios = 0.0;
 
 
         System.out.println("---> Start getting results");
@@ -83,13 +76,17 @@ public class StartpointController {
 
         for (ApkCustom apkCustom : customApks) {
             totApks++;
-            summDurationSec += apkCustom.getRemovalTimeNanoSec();
+
             ApkOriginal apkOriginal = apkCustom.getApkOriginal();
+
+
             if (apkCustom.isInstallSuccess()) {
                 customInstallSuccess++;
-                summRatios += apkOriginal.getFileSize() / apkCustom.getFileSize();
+
                 if (apkCustom.isMonkeyCrash()) {
                     customInstallSuccessButMonkeyCrash++;
+
+
                     if (apkOriginal.isMonkeyCrash()) {
                         customMonkeyCrashAndOriginalMonkeyCrash++;
                     } else {
@@ -98,6 +95,11 @@ public class StartpointController {
                 } else {
                     customInstallSuccessAndMonkeySuccess++;
                 }
+
+                if (apkCustom.getRmPermOutput().contains("but I don't have a redirection for it")) {
+                    noRedirect++;
+                }
+
             } else {
                 customInstallFail++;
                 if (apkOriginal.isInstallSuccess()) {
@@ -107,27 +109,10 @@ public class StartpointController {
                 }
             }
         }
-
-        avgDurationSec = summDurationSec / totApks;
-        avgRatios = summRatios / totApks;
-
-        varDurationSec = 0.0;
-        varRatios = 0.0;
-        for (ApkCustom apkCustom : customApks) {
-            varDurationSec += Math.pow(((double) apkCustom.getRemovalTimeNanoSec() - avgDurationSec), 2);
-            varRatios += Math.pow((apkCustom.getApkOriginal().getFileSize() / apkCustom.getFileSize() - avgRatios), 2);
-        }
-        stdDeviationRemSec = Math.sqrt(varDurationSec / (totApks - 1));
-        stdDeviationRatios = Math.sqrt(varRatios / (totApks - 1));
+        int installableApks = (int) (totApks - customInstallFailAndOriginalInstallFail);
+        double installSuccess = customInstallSuccess * 100.0 / installableApks;
 
         System.out.println("<--- End getting results");
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
-
-
-    @RequestMapping(value = "androidResult/{fileSize}/{time}", method = RequestMethod.GET)
-    public ResponseEntity<?> androidResult(@PathVariable String fileSize, @PathVariable String time) {
-
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
@@ -135,46 +120,188 @@ public class StartpointController {
     @RequestMapping(value = "generateDat", method = RequestMethod.GET)
     public ResponseEntity<?> generateDat() {
         try {
-            /*
-            File speed = File.createTempFile("speed_pc", ".dat");
-            File permfail = File.createTempFile("permfail", ".dat");
-            File beforeafter = File.createTempFile("beforeafter", ".dat");
-            */
-            File speed = new File("/home/simo/gnuplotest/speed/speed_pc.dat");
-            File beforeafter = new File("/home/simo/gnuplotest/beforeafter/beforeafter.dat");
-            if (speed.exists())
-                speed.delete();
-            if (beforeafter.exists())
-                beforeafter.delete();
+            File dangerousDistribution = new File("/home/simo/gnuplotest/permfail/dangerous.dat");
+            if (dangerousDistribution.exists())
+                dangerousDistribution.delete();
+            DangerousPermissionCounter dangerousPermissionCounter = new DangerousPermissionCounter();
+
+            File speedPc = new File("/home/simo/gnuplotest/speed/speed_pc.dat");
+            if (speedPc.exists())
+                speedPc.delete();
+            List<SpeedPoint> speedPoints = new ArrayList<SpeedPoint>();
+
+            File permDistrib = new File("/home/simo/gnuplotest/permDistrib/permDistrib.dat");
+            if (permDistrib.exists())
+                permDistrib.delete();
+            PermissionCounter permissionCounter = new PermissionCounter();
+
+
             System.out.println("---> Start generating dat");
 
             Iterable<ApkCustom> customApks = apkCustomRepository.findAll();
 
-            List<SpeedPoint> speedPoints = new ArrayList<SpeedPoint>();
-            List<PermDeltaCardinality> permDeltas = new ArrayList<PermDeltaCardinality>();
             for (ApkCustom apkCustom : customApks) {
-                double seconds = ((double) apkCustom.getRemovalTimeNanoSec() / 1000000000.0);
-                speedPoints.add(new SpeedPoint(seconds, apkCustom.getApkOriginal().getFileSize()));
-                permDeltas.add(new PermDeltaCardinality(
-                        apkCustom.getApkOriginal().getPermissions().size(),
-                        apkCustom.getPermissions().size()));
+
+                for (Permission p : apkCustom.getApkOriginal().getPermissions()) {
+                    dangerousPermissionCounter.increment(p.getPermissionName());
+                    permissionCounter.count(p.getPermissionName());
+                }
+                dangerousPermissionCounter.incTotApks();
+                permissionCounter.incTotApks();
+
+                if (apkCustom.getApkOriginal().getDexSize() > 0.0 && apkCustom.getDexSize() > 0.0) {
+                    speedPoints.add(new SpeedPoint(apkCustom.getRemovalTimeNanoSec(), apkCustom.getApkOriginal().getDexSize()));
+                }
+
             }
-            System.out.println("--- Sorting result");
+
+            PrintWriter pw;
+
+            pw = new PrintWriter(dangerousDistribution);
+            pw.println("perm freq");
+            for (PermissionFreq pf : dangerousPermissionCounter.getOrderedListByFreq()) {
+                pw.println(pf);
+            }
+            pw.close();
+
+            pw = new PrintWriter(permDistrib);
+            pw.println("perm freq");
+            for (PermissionFreq pf : permissionCounter.getOrderedListByFreq()) {
+                pw.println(pf);
+            }
+            pw.close();
+
             Collections.sort(speedPoints);
-            Collections.sort(permDeltas);
-            PrintWriter printWriter = new PrintWriter(speed);
+            pw = new PrintWriter(speedPc);
             for (SpeedPoint sp : speedPoints)
-                printWriter.println(sp);
-            printWriter = new PrintWriter(beforeafter);
-            for (PermDeltaCardinality pdc : permDeltas)
-                printWriter.println(pdc);
+                pw.println(sp);
+            pw.close();
 
             System.out.println("<--- End generating dat");
         } catch (IOException e) {
             e.printStackTrace();
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+
+    @RequestMapping(value = "generateTable", method = RequestMethod.GET)
+    public ResponseEntity<?> generateTable() {
+
+        List<Integer> sumBefore = new ArrayList<>();
+        List<Integer> sumAfter = new ArrayList<>();
+        List<Integer> sumDelta = new ArrayList<>();
+        List<Double> sumApkSizeRatio = new ArrayList<>();
+        List<Double> sumDexSizeRatio = new ArrayList<>();
+        List<Double> sumRemovalTime = new ArrayList<>();
+
+        Iterable<ApkCustom> customApks = apkCustomRepository.findAll();
+        double totApks = 0.0;
+
+        for (ApkCustom apkCustom : customApks) {
+            if (!apkCustom.isInstallSuccess() && !apkCustom.getApkOriginal().isInstallSuccess())
+                continue; // non-relevant
+            totApks++;
+            String packageName = apkCustom.getPackName();
+
+            int before = apkCustom.getApkOriginal().getPermissions().size();
+            sumBefore.add(before);
+
+            int after = apkCustom.getPermissions().size();
+            sumAfter.add(after);
+
+            int delta = before - after;
+
+            if (delta >= 0 && delta < 25) { // we have few (12) apps with strange delta :(
+                sumDelta.add(delta);
+            }
+
+            double apkSizeRatio = apkCustom.getApkOriginal().getFileSize() / apkCustom.getFileSize();
+            if (!Double.isNaN(apkSizeRatio))
+                sumApkSizeRatio.add(apkSizeRatio);
+
+            double dexSizeRatio = apkCustom.getApkOriginal().getDexSize() / apkCustom.getDexSize();
+            if (!Double.isNaN(dexSizeRatio)) {
+                sumDexSizeRatio.add(dexSizeRatio);
+            }
+
+            double removalTime = apkCustom.getRemovalTimeNanoSec() / 1000000000.0;
+            if (!Double.isNaN(removalTime))
+                sumRemovalTime.add(removalTime);
+
+            boolean install = apkCustom.isInstallSuccess();
+            boolean monkey = apkCustom.isMonkeyCrash();
+            /*
+            System.out.println(String.format("%s & %d & %d & %d & %.2f & %.2f & %.2f & %b & %b",
+                    packageName, before, after, delta, apkSizeRatio, dexSizeRatio, removalTime, install, monkey));
+                    */
+
+        }
+
+        System.out.println("--- ");
+
+        double avgBefore = sumBefore.stream().mapToDouble(a -> a).average().getAsDouble();
+        double avgAfter = sumAfter.stream().mapToDouble(a -> a).average().getAsDouble();
+        double avgDelta = sumDelta.stream().mapToDouble(a -> a).average().getAsDouble();
+        double avgApkSizeRatio = sumApkSizeRatio.stream().mapToDouble(a -> a).average().getAsDouble();
+        double avgDexSizeRatio = sumDexSizeRatio.stream().mapToDouble(a -> a).average().getAsDouble();
+        double avgRemovalTime = sumRemovalTime.stream().mapToDouble(a -> a).average().getAsDouble();
+
+        int maxBefore = Collections.max(sumBefore);
+        int minBefore = Collections.min(sumBefore);
+
+        int maxAfter = Collections.max(sumAfter);
+        int minAfter = Collections.min(sumAfter);
+
+        int maxDelta = Collections.max(sumDelta);
+        int minDelta = Collections.min(sumDelta);
+
+        double maxApkSizeRatio = Collections.max(sumApkSizeRatio);
+        double minApkSizeRatio = Collections.min(sumApkSizeRatio);
+
+        double maxDexSizeRatio = Collections.max(sumDexSizeRatio);
+        double minDexSizeRatio = Collections.min(sumDexSizeRatio);
+
+
+        List<Double> sumPowBefore = new ArrayList<>();
+        List<Double> sumPowAfter = new ArrayList<>();
+        List<Double> sumPowDelta = new ArrayList<>();
+        List<Double> sumPowApkSizeRatio = new ArrayList<>();
+        List<Double> sumPowDexSizeRatio = new ArrayList<>();
+        List<Double> sumPowRemovalTime = new ArrayList<>();
+        for (ApkCustom apkCustom : customApks) {
+            int before = apkCustom.getApkOriginal().getPermissions().size();
+            sumPowBefore.add(Math.pow(before - avgBefore, 2));
+
+            int after = apkCustom.getPermissions().size();
+            sumPowAfter.add(Math.pow(after - avgAfter, 2));
+
+            int delta = before - after;
+            sumPowDelta.add(Math.pow(delta - avgDelta, 2));
+
+            double apkSizeRatio = apkCustom.getApkOriginal().getFileSize() / apkCustom.getFileSize();
+            if (!Double.isNaN(apkSizeRatio))
+                sumPowApkSizeRatio.add(Math.pow(apkSizeRatio - avgApkSizeRatio, 2));
+
+            double dexSizeRatio = apkCustom.getApkOriginal().getDexSize() / apkCustom.getDexSize();
+            if (!Double.isNaN(dexSizeRatio))
+                sumPowDexSizeRatio.add(Math.pow(dexSizeRatio - avgDexSizeRatio, 2));
+
+            double removalTime = apkCustom.getRemovalTimeNanoSec() / 1000000000.0;
+            if (!Double.isNaN(removalTime))
+                sumPowRemovalTime.add(Math.pow(removalTime - avgRemovalTime, 2));
+        }
+
+        double stdBefore = Math.sqrt(sumPowBefore.stream().mapToDouble(a -> a).average().getAsDouble());
+        double stdAfter = Math.sqrt(sumPowAfter.stream().mapToDouble(a -> a).average().getAsDouble());
+        double stdDelta = Math.sqrt(sumPowDelta.stream().mapToDouble(a -> a).average().getAsDouble());
+        double stdApkSizeRatio = Math.sqrt(sumPowApkSizeRatio.stream().mapToDouble(a -> a).average().getAsDouble());
+        double stdDexSizeRatio = Math.sqrt(sumPowDexSizeRatio.stream().mapToDouble(a -> a).average().getAsDouble());
+        double stdRemovalTime = Math.sqrt(sumPowRemovalTime.stream().mapToDouble(a -> a).average().getAsDouble());
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
+
+
 }
